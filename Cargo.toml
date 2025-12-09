@@ -22,11 +22,13 @@ required-features = ["scatter-gather"]
 [features]
 default = []
 async = ["dep:async-io"]
+timeout = ["dep:polling"]
 scatter-gather = []
 
 [dependencies]
 async-io = { version = "2.2", optional = true }
 libc = "0.2"
+polling = { version = "3.11", optional = true }
 thiserror = "1.0"
 
 [dev-dependencies]

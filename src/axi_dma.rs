@@ -153,16 +153,52 @@ impl AxiDma {
         self.dma.status_d2h();
     }
 
-    pub fn wait_d2h(&mut self) -> Result<(), Error> {
+    fn wait(&mut self) -> Result<(), Error> {
         let mut buf = [0u8; 4];
         self.dev_fd.read_exact(&mut buf)?;
         Ok(())
     }
 
+    #[cfg(feature = "timeout")]
+    fn wait_timeout(&mut self, timeout: std::time::Duration) -> Result<(), Error> {
+        let poller = polling::Poller::new()?;
+        let key = 0;
+        unsafe { poller.add(&self.dev_fd, polling::Event::readable(key)) }?;
+        let mut events = polling::Events::new();
+        // Waiting for the poller can return spuriously with no events before
+        // the timeout or deadline is reached, so we compute a deadline and call
+        // the poller in a loop until the deadline is surpassed.
+        let deadline = std::time::Instant::now() + timeout;
+        loop {
+            events.clear();
+            poller.wait_deadline(&mut events, deadline)?;
+            for event in events.iter() {
+                assert_eq!(event.key, key);
+                return self.wait();
+            }
+            if std::time::Instant::now() >= deadline {
+                break;
+            }
+        }
+        Err(Error::Timeout)
+    }
+
+    pub fn wait_d2h(&mut self) -> Result<(), Error> {
+        self.wait()
+    }
+
+    #[cfg(feature = "timeout")]
+    pub fn wait_d2h_timeout(&mut self, timeout: std::time::Duration) -> Result<(), Error> {
+        self.wait_timeout(timeout)
+    }
+
     pub fn wait_h2d(&mut self) -> Result<(), Error> {
-        let mut buf = [0u8; 4];
-        self.dev_fd.read_exact(&mut buf)?;
-        Ok(())
+        self.wait()
+    }
+
+    #[cfg(feature = "timeout")]
+    pub fn wait_h2d_timeout(&mut self, timeout: std::time::Duration) -> Result<(), Error> {
+        self.wait_timeout(timeout)
     }
 
     pub fn size_d2h(&self) -> usize {

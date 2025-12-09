@@ -47,4 +47,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("Failed to parse integer from sysfs files.")]
     Parse(#[from] std::num::ParseIntError),
+    #[cfg(feature = "timeout")]
+    #[error("Timeout reached")]
+    Timeout,
 }
